@@ -14,15 +14,6 @@
 // numpy.log2(2*numpy.pi)
 #define EML_LOG2_2PI 2.651496129472319f
 
-typedef struct _EmlMixtureModel {
-   int32_t n_components;
-   int32_t n_features;
-   float *weigths;
-   float *means;
-   float *log_dets;
-} EmlMixtureModel;
-
-
 bool
 eml_dot_product(float *a, float *b, int n)
 {
@@ -34,29 +25,57 @@ eml_dot_product(float *a, float *b, int n)
     return sum;
 }
 
+typedef enum EmlCovarianceType_ = {
+    EmlCovarianceFull,
+    EmlCovarianceTied,
+    EmlCovarianceDiagonal,
+    EmlCovarianceSpherical,
+} EmlCovarianceType;
 
-    float out[EML_MAX_CLASSES];
+typedef struct _EmlMixtureModel {
+   int32_t n_components;
+   int32_t n_features;
+   EmlCovarianceType covariance_type;
 
-/*
+   float *means; // n_components * n_features (in the full covariance case)
 
-    for (int c=0; c<n_components; c++) {
+   // Cholesky decompositions of the precision matrices.
+   // Length depends on covariance_type, see eml_mixture_precisions_length
+   float *precisions;
 
-        log_prob = model->means[c]
+    // FIXME: combine log_dets and log_weights?
+   float *log_dets; // n_components
+   float *log_weigths; // n_components
+} EmlMixtureModel;
 
-        out[c] = -0.5 * (n_features * EML_LOG2_2PI + log_prob ) + log_det[c];
+
+int
+eml_mixture_precisions_length(EmlMixtureModel *model)
+{
+    int length = -1;
+    const int32_t features = model->n_features;
+    const int32_t components = model->n_components;
+    const int32_t features = model->n_features;
+
+    switch (model->covariance_type) {
+        case EmlCovarianceFull:
+            length = (components * features * features);
+            break;
+        case EmlCovarianceTied:
+            length = (features * features);
+            break;
+        case EmlCovarianceDiagonal:
+            length = (components * features);
+            break;
+        case EmlCovarianceSpherical:
+            length = (components);
+            break;
     }
 
+    return length;
+}
 
 
-    if covariance_type == 'full':
-        log_prob = np.empty((n_samples, n_components))
-        for k, (mu, prec_chol) in enumerate(zip(means, precisions_chol)):
-            y = np.dot(X, prec_chol) - np.dot(mu, prec_chol)
-            log_prob[:, k] = np.sum(np.square(y), axis=1)
-
-    return -.5 * (n_features * np.log(2 * np.pi) + log_prob) + log_det
-
-*/
 
 int32_t
 eml_mixture_predict_proba(EmlMixtureModel *model,
@@ -68,6 +87,58 @@ eml_mixture_predict_proba(EmlMixtureModel *model,
    EML_PRECONDITION(values, -EmlUninitialized);
    EML_PRECONDITION(model->n_components > 0, -EmlUninitialized);
 
+
+   float *out = probabilities;
+
+    for (int c=0; c<n_components; c++) {
+
+        
+        const float *means = model->means[(c*n_features)]
+
+        switch (covariance_type) {
+
+            case EmlCovarianceFull:
+
+                const float *precisions = model->precisions[(c*n_features)]
+                const int n_precisions = model->n_features; // per feature, for this component 
+
+                float log_prob = 0.0;
+                for (int f=0; f<n_features; f++) {
+
+                    float dot_x = 0.0;
+                    float dot_m = 0.0;
+                    for (int p=0; p<n_precisions; p++) {
+                        dot_x += (values[f] * precisions[p]);
+                        dot_m += (means[f] * precisions[p]);
+                    }
+                    const float y = (dot_x - dot_m);
+
+                    log_prob += (y*y);
+                }
+
+                break;
+
+            case EmlCovarianceTied:
+                return -66;
+                break;
+
+            case EmlCovarianceDiagonal:
+                return -66;
+                break;
+
+            case EmlCovarianceSpherical:
+                return -66;
+                break;
+
+        }
+
+        out[c] = -0.5 * (n_features * EML_LOG2_2PI + log_prob ) + log_det[c];
+        out[c] += log_weights[c];
+
+    }
+
+
+*/
 
 
    return ;

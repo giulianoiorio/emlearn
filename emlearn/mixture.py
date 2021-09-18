@@ -79,24 +79,35 @@ def _estimate_log_gaussian_prob(X, means, precisions_chol, covariance_type):
 
     if covariance_type == 'full':
         log_prob = np.empty((n_samples, n_components))
+
+        print('mm', n_samples, n_features, n_components)
+
         for k, (mu, prec_chol) in enumerate(zip(means, precisions_chol)):
 
-            if True:
-                #for x in X:
-                print("ss", X.shape, mu.shape, prec_chol.shape)
+            print("ss", X.shape, mu.shape, prec_chol.shape)
+
+            if False:
+
                 y = np.matmul(X, prec_chol) - np.matmul(mu, prec_chol)
-                print("yy", y.shape, n_samples, n_features, n_components)
+                print("yy", y.shape)
                 p = np.sum(np.square(y), axis=1) # sum over features
                 print("p", p.shape, p)
                 log_prob[:, k] = p          
 
             else:
-                print("ss", X.shape, mu.shape, prec_chol.shape)
-                y = np.dot(X, prec_chol) - np.dot(mu, prec_chol)
-                print("yy", y.shape, n_samples, n_features, n_components)
-                p = np.sum(np.square(y), axis=1) # sum over features
-                print("p", p.shape, p)
-                log_prob[:, k] = p
+                # sample iteration can be moved to outside
+                for i, x in enumerate(X):
+                    print('x', i, x.shape)
+
+                    if True:
+                        y = np.dot(x, prec_chol) - np.dot(mu, prec_chol)
+                        print("yy", y.shape)
+                        p = np.sum(np.square(y), axis=0) # sum over features
+                        print("p", p.shape, p)
+
+                    #for f_idx in range(x.shape):
+                        
+                        log_prob[i, k] = p
 
     elif covariance_type == 'tied':
         log_prob = np.empty((n_samples, n_components))
@@ -115,6 +126,8 @@ def _estimate_log_gaussian_prob(X, means, precisions_chol, covariance_type):
         log_prob = (np.sum(means ** 2, 1) * precisions -
                     2 * np.dot(X, means.T * precisions) +
                     np.outer(row_norms(X, squared=True), precisions))
+
+    print('kk', log_prob.shape, log_det.shape)
     return -.5 * (n_features * np.log(2 * np.pi) + log_prob) + log_det
 
 class Wrapper:
